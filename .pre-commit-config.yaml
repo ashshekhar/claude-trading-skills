@@ -46,6 +46,13 @@ repos:
   # Project-specific pre-commit checks
   - repo: local
     hooks:
+      - id: sensitive-staged-paths
+        name: Block ignored and sensitive staged paths
+        entry: python3 scripts/hooks/check_sensitive_staged_paths.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: no-absolute-paths
         name: Detect absolute paths with usernames
         entry: python3 scripts/hooks/check_no_absolute_paths.py

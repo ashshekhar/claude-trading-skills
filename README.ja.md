@@ -14,6 +14,12 @@ Claude Trading Skills は、時間制約のある個人投資家が、Claude を
 
 📖 **ドキュメントサイト:** <https://tradermonty.github.io/claude-trading-skills/>
 
+## データの取り扱いとセキュリティ
+
+ローカル／外部データの流れ、保持期間、復旧方法は
+[データ取り扱いガイド](docs/ja/privacy-data-handling.md)を参照してください。
+セキュリティ上の懸念は[SECURITY.md](SECURITY.md)の案内に従って報告してください。
+
 **プロジェクトビジョン:** [`PROJECT_VISION.ja.md`](PROJECT_VISION.ja.md)
 
 English README is available at [`README.md`](README.md).

@@ -14,6 +14,12 @@ The project follows a **first for self, open for others** stance: it is built fi
 
 📖 **Documentation site:** <https://tradermonty.github.io/claude-trading-skills/>
 
+## Data Handling and Security
+
+See the [data handling guide](docs/en/privacy-data-handling.md) for local and
+external data flows, retention, and recovery steps. Report security concerns
+using the instructions in [SECURITY.md](SECURITY.md).
+
 **Project vision:** [`PROJECT_VISION.md`](PROJECT_VISION.md)
 
 日本語版READMEは[`README.ja.md`](README.ja.md)をご覧ください。

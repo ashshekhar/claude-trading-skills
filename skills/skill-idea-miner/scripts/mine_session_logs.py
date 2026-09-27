@@ -31,6 +31,132 @@ LOOKBACK_DAYS = 7
 MAX_USER_MESSAGES_PER_SESSION = 5
 MAX_ERROR_OUTPUT_LEN = 500
 
+# These deterministic patterns reduce common credential and identity exposure.
+# They are intentionally described as best-effort masking, not full anonymization.
+_REDACTION_PATTERNS = (
+    (
+        re.compile(
+            r"(?i)[\"']?\b(?:[a-z0-9]+[_-])*(?:api[_-]?key|api[_-]?secret|"
+            r"access[_-]?key|private[_-]?key|secret[_-]?access[_-]?key|"
+            r"access[_-]?token|refresh[_-]?token|client[_-]?secret|"
+            r"secret(?:[_-]?key)?|password|authorization|token)\b"
+            r"[\"']?\s*[:=]\s*"
+            r"(?:Bearer\s+)?(?:\"[^\"]*\"|'[^']*'|[^\s,;&}]+)"
+        ),
+        "[REDACTED CREDENTIAL]",
+    ),
+    (re.compile(r"(?i)\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}"), "[REDACTED TOKEN]"),
+    (
+        re.compile(
+            r"\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|"
+            r"sk-ant-[A-Za-z0-9_-]{16,}|sk-[A-Za-z0-9_-]{24,}|"
+            r"xox[baprs]-[A-Za-z0-9-]{12,})\b"
+        ),
+        "[REDACTED TOKEN]",
+    ),
+    (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[REDACTED EMAIL]"),
+    (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[REDACTED IDENTIFIER]"),
+    (
+        re.compile(
+            r"(?i)[\"']?\b(account|acct|order|customer|client|user|portfolio)"
+            r"(?:\s*[_-]?\s*(?:id|number|no\.?))?\b[\"']?\s*"
+            r"([:=#])\s*[\"']?[A-Za-z0-9][A-Za-z0-9._/@+-]{1,}"
+        ),
+        r"\1\2[REDACTED IDENTIFIER]",
+    ),
+    (
+        re.compile(
+            r"(?i)[\"']?\b(phone|mobile|telephone|ssn|tax id)\b[\"']?\s*[:=#]\s*"
+            r"[+()0-9 .-]{6,}"
+        ),
+        "[REDACTED IDENTIFIER]",
+    ),
+)
+
+
+def _redact_sensitive_text(value: str) -> str:
+    """Mask common, recognizable secrets and labeled personal identifiers."""
+    redacted = value
+    for pattern, replacement in _REDACTION_PATTERNS:
+        redacted = pattern.sub(replacement, redacted)
+    return redacted
+
+
+def _is_sensitive_field_key(key) -> bool:
+    """Recognize structured credential and personal-identifier field names."""
+    if not isinstance(key, str):
+        return False
+    camel_split = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", key)
+    normalized = re.sub(r"[^a-z0-9]+", "_", camel_split.lower()).strip("_")
+    if normalized in {
+        "authorization",
+        "email",
+        "phone",
+        "mobile",
+        "telephone",
+        "ssn",
+        "tax_id",
+        "secret",
+        "token",
+        "credentials",
+    }:
+        return True
+    if normalized.endswith(
+        (
+            "_token",
+            "_secret",
+            "_password",
+            "_credential",
+            "_email",
+            "_email_address",
+            "_phone",
+            "_api_key",
+            "_api_secret",
+            "_access_key",
+            "_private_key",
+            "_secret_key",
+            "_secret_access_key",
+        )
+    ):
+        return True
+    if normalized in {"api_key", "access_key", "private_key", "secret_key", "password"}:
+        return True
+
+    parts = set(normalized.split("_"))
+    identifier_suffixes = {"id", "number", "no", "identifier"}
+    sensitive_entities = {
+        "account",
+        "acct",
+        "order",
+        "trade",
+        "customer",
+        "client",
+        "user",
+        "portfolio",
+        "broker",
+        "brokerage",
+    }
+    return bool(parts & sensitive_entities) and normalized.split("_")[-1] in identifier_suffixes
+
+
+def _redact_sensitive_data(value):
+    """Recursively mask strings before prompts, logs, or report serialization."""
+    if isinstance(value, str):
+        return _redact_sensitive_text(value)
+    if isinstance(value, list):
+        return [_redact_sensitive_data(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_sensitive_data(item) for item in value)
+    if isinstance(value, dict):
+        return {
+            _redact_sensitive_data(key): (
+                "[REDACTED FIELD]" if _is_sensitive_field_key(key) else _redact_sensitive_data(item)
+            )
+            for key, item in value.items()
+        }
+    return value
+
+
 # Categories rejected by the deterministic post-LLM filter.
 # Broad denylist covering non-trading domains.
 REJECTED_CATEGORIES = {
@@ -139,7 +265,7 @@ def list_session_logs(
                 if mtime >= cutoff_ts:
                     results.append((project_name, jsonl_file))
             except OSError:
-                logger.warning("Could not stat %s", jsonl_file)
+                logger.warning("Could not inspect a session log timestamp.")
 
     return results
 
@@ -163,7 +289,7 @@ def parse_session(log_path: Path) -> dict:
     try:
         text = log_path.read_text(encoding="utf-8")
     except OSError as e:
-        logger.warning("Could not read %s: %s", log_path, e)
+        logger.warning("Could not read a session log (%s).", type(e).__name__)
         return {"user_messages": [], "tool_uses": [], "timestamps": []}
 
     for line_num, line in enumerate(text.splitlines(), 1):
@@ -174,7 +300,7 @@ def parse_session(log_path: Path) -> dict:
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:
-            logger.warning("Malformed JSON at %s:%d, skipping.", log_path.name, line_num)
+            logger.warning("Malformed JSON at session line %d; skipping.", line_num)
             continue
 
         if not isinstance(entry, dict):
@@ -501,20 +627,16 @@ def abstract_with_llm(
         )
 
         if result.returncode != 0:
-            logger.warning("claude -p failed: %s", result.stderr.strip()[:200])
+            logger.warning("claude -p failed (exit code %d).", result.returncode)
             return None
 
-        logger.debug("claude -p stdout (%d chars): %.500s", len(result.stdout), result.stdout)
+        logger.debug("claude -p returned %d characters.", len(result.stdout))
 
         response = _extract_json_from_claude(result.stdout, ["candidates"])
         if response and "candidates" in response:
             return response["candidates"]
 
-        logger.warning(
-            "Could not parse LLM candidates JSON. stdout (%d chars): %.300s",
-            len(result.stdout),
-            result.stdout,
-        )
+        logger.warning("Could not parse LLM candidates JSON (%d characters).", len(result.stdout))
         return None
 
     except subprocess.TimeoutExpired:
@@ -594,7 +716,7 @@ def _build_llm_prompt(
         '"signals_used": ["..."]}]}'
     )
 
-    return "\n".join(parts)
+    return _redact_sensitive_text("\n".join(parts))
 
 
 def _extract_json_from_claude(output: str, required_keys: list[str]) -> dict | None:
@@ -646,12 +768,12 @@ def filter_non_trading_candidates(candidates: list[dict]) -> list[dict]:
         desc = str(c.get("description") or "").lower()
 
         if category in REJECTED_CATEGORIES:
-            logger.info("Filtered out '%s' (rejected category: %s)", c.get("title"), category)
+            logger.info("Filtered out candidate with a rejected category.")
             continue
 
         text = f"{title} {desc}"
         if any(kw in text for kw in REJECTED_KEYWORDS):
-            logger.info("Filtered out '%s' (rejected keyword match)", c.get("title"))
+            logger.info("Filtered out candidate with a rejected keyword match.")
             continue
 
         accepted.append(c)
@@ -676,7 +798,7 @@ def _write_empty_output(output_dir: Path, lookback_days: int) -> None:
         yaml.safe_dump(output, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
     )
-    logger.info("Wrote empty raw candidates to %s", output_path)
+    logger.info("Wrote empty raw candidates report.")
 
 
 # ── Main entry point ──
@@ -699,7 +821,7 @@ def run(args: argparse.Namespace) -> int:
     # Find project directories
     project_dirs = find_project_dirs(claude_dir, allowlist)
     if not project_dirs:
-        logger.warning("No matching project directories found in %s", claude_dir)
+        logger.warning("No matching project directories found.")
         _write_empty_output(output_dir, args.lookback_days)
         return 0
 
@@ -718,8 +840,8 @@ def run(args: argparse.Namespace) -> int:
     all_signals: list[dict] = []
     all_user_samples: list[str] = []
 
-    for project_name, log_path in session_logs:
-        logger.info("Parsing %s (%s)", log_path.name, project_name)
+    for session_number, (project_name, log_path) in enumerate(session_logs, start=1):
+        logger.info("Parsing session %d.", session_number)
         parsed = parse_session(log_path)
         signals = detect_signals(parsed)
 
@@ -730,7 +852,7 @@ def run(args: argparse.Namespace) -> int:
         all_signals.append(
             {
                 "project": project_name,
-                "session": log_path.name,
+                "session": f"session_{session_number:03d}",
                 "signals": signals,
                 "user_message_count": len(parsed.get("user_messages", [])),
                 "tool_use_count": len(parsed.get("tool_uses", [])),
@@ -739,7 +861,7 @@ def run(args: argparse.Namespace) -> int:
 
     # LLM abstraction (optional)
     # Aggregate signals across sessions
-    aggregated = _aggregate_signals(all_signals)
+    aggregated = _redact_sensitive_data(_aggregate_signals(all_signals))
     # --project overrides the default trading-focused allowlist
     trading_focus = args.project is None
     candidates = abstract_with_llm(
@@ -759,6 +881,7 @@ def run(args: argparse.Namespace) -> int:
             # or return title as null alongside a valid 'name'.
             if (not c.get("title")) and c.get("name"):
                 c["title"] = c.pop("name")
+        candidates = _redact_sensitive_data(candidates)
 
     # Deterministic domain filter (only when using default allowlist)
     if candidates and trading_focus:
@@ -770,7 +893,7 @@ def run(args: argparse.Namespace) -> int:
         "lookback_days": args.lookback_days,
         "sessions_analyzed": len(session_logs),
         "aggregated_signals": aggregated,
-        "session_details": all_signals,
+        "session_details": _redact_sensitive_data(all_signals),
     }
     output["candidates"] = candidates if candidates else []
 
@@ -779,7 +902,7 @@ def run(args: argparse.Namespace) -> int:
         yaml.safe_dump(output, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
     )
-    logger.info("Wrote raw candidates to %s", output_path)
+    logger.info("Wrote raw candidates report.")
 
     return 0
 

@@ -211,6 +211,92 @@ def test_parse_malformed_jsonl(mine_module, tmp_path: Path):
     assert result["user_messages"][1] == "Another valid one"
 
 
+def test_sensitive_text_redaction_masks_synthetic_examples(mine_module):
+    """The documented best-effort rules cover common synthetic identifiers."""
+    source = (
+        "apikey=synthetic-api-key-value Bearer synthetic-bearer-token "
+        "alice@example.invalid account id: ACCT-123456 order_no=ORDER-98765 "
+        '"api_key": "synthetic-json-secret" "account_id": "JSON-445566" '  # pragma: allowlist secret
+        "SSN 123-45-6789"
+    )
+
+    result = mine_module._redact_sensitive_text(source)
+
+    for value in (
+        "synthetic-api-key-value",
+        "synthetic-bearer-token",
+        "alice@example.invalid",
+        "ACCT-123456",
+        "ORDER-98765",
+        "synthetic-json-secret",
+        "JSON-445566",
+        "123-45-6789",
+    ):
+        assert value not in result
+    assert "[REDACTED" in result
+
+
+def test_sensitive_data_redaction_walks_nested_report_fields(mine_module):
+    """Nested signal and candidate strings are masked before serialization."""
+    source = {
+        "signals": [{"sample": "contact alice@example.invalid"}],
+        "candidates": [
+            {
+                "title": "Account number: 99887766",
+                "api_key": "generic-secret",  # pragma: allowlist secret
+                "account_id": "ACCT-123456",
+                "metadata": {"providerToken": "synthetic-token-value"},
+                "token": "top-level-token-value",
+                "fmpApiKey": "candidate-provider-secret",  # pragma: allowlist secret
+            }
+        ],
+    }
+
+    result = mine_module._redact_sensitive_data(source)
+
+    assert "alice@example.invalid" not in str(result)
+    assert "99887766" not in str(result)
+    assert "generic-secret" not in str(result)
+    assert "ACCT-123456" not in str(result)
+    assert "synthetic-token-value" not in str(result)
+    assert "top-level-token-value" not in str(result)
+    assert "candidate-provider-secret" not in str(result)
+
+
+def test_llm_prompt_redacts_signal_samples_and_user_messages(mine_module):
+    prompt = mine_module._build_llm_prompt(
+        {"errors": {"count": 1, "samples": ["email alice@example.invalid"]}},
+        [
+            "Use account id: ACCT-123456 and token=synthetic-secret-value "
+            "FMP_API_KEY=synthetic-fmp-api-key"
+        ],
+        "test-project",
+    )
+
+    assert "alice@example.invalid" not in prompt
+    assert "ACCT-123456" not in prompt
+    assert "synthetic-secret-value" not in prompt
+    assert "synthetic-fmp-api-key" not in prompt
+
+
+def test_llm_failure_log_does_not_include_provider_stderr(mine_module, monkeypatch, caplog):
+    """Provider stderr may echo prompt data, so logs retain status only."""
+
+    class Result:
+        returncode = 1
+        stderr = "synthetic-secret-value alice@example.invalid"
+        stdout = ""
+
+    monkeypatch.setattr(mine_module.shutil, "which", lambda _name: "/usr/bin/claude")
+    monkeypatch.setattr(mine_module.subprocess, "run", lambda *args, **kwargs: Result())
+
+    result = mine_module.abstract_with_llm({}, [], "test-project")
+
+    assert result is None
+    assert "synthetic-secret-value" not in caplog.text
+    assert "alice@example.invalid" not in caplog.text
+
+
 # ── detect_signals ──
 
 
@@ -669,7 +755,14 @@ def test_run_converts_name_to_title_and_adds_id(mine_module, tmp_path: Path):
 
     # Candidates as the LLM might return them (with 'name' instead of 'title')
     fake_candidates = [
-        {"name": "Auto Reporter", "description": "Automated reports", "priority": "high"},
+        {
+            "name": "Auto Reporter",
+            "description": "Automated reports",
+            "priority": "high",
+            "api_key": "synthetic-candidate-secret",  # pragma: allowlist secret
+            "account_id": "CANDIDATE-12345",
+            "fmpApiKey": "candidate-fmp-key",  # pragma: allowlist secret
+        },
         {"title": "Already Titled", "description": "Has title", "priority": "low"},
     ]
 
@@ -717,6 +810,9 @@ def test_run_converts_name_to_title_and_adds_id(mine_module, tmp_path: Path):
     assert "title" in candidates[0]
     assert candidates[0]["title"] == "Auto Reporter"
     assert "name" not in candidates[0]  # 'name' key removed
+    assert candidates[0]["api_key"] == "[REDACTED FIELD]"
+    assert candidates[0]["account_id"] == "[REDACTED FIELD]"
+    assert candidates[0]["fmpApiKey"] == "[REDACTED FIELD]"
 
     # Second candidate: already had 'title', should be untouched
     assert candidates[1]["title"] == "Already Titled"
