@@ -3,7 +3,7 @@
 > Source: GitHub issue #297 (mandatory checklist referenced by `backtest-expert`,
 > the `edge-*` pipeline, `residual-edge-analyzer`, and
 > `edge-strategy-reviewer`).
-> Canonical data: [`skills/edge-strategy-reviewer/assets/bias_checklist.yaml`](../../skills/edge-strategy-reviewer/assets/bias_checklist.yaml)
+> Canonical data: [skills/edge-strategy-reviewer/assets/bias_checklist.yaml](https://github.com/tradermonty/claude-trading-skills/blob/main/skills/edge-strategy-reviewer/assets/bias_checklist.yaml)
 
 ## Purpose
 

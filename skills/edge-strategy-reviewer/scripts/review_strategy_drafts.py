@@ -496,6 +496,8 @@ def is_export_eligible(
 
 BUNDLED_CHECKLIST = Path(__file__).resolve().parent.parent / "assets" / "bias_checklist.yaml"
 
+BIAS_SCHEMA_VERSION = "1.0"
+
 
 def load_bias_checklist(path: Path) -> list[dict]:
     """Load and validate bias checklist items from a YAML file.
@@ -510,6 +512,12 @@ def load_bias_checklist(path: Path) -> list[dict]:
         raise ReviewError(f"Could not read bias checklist {path}: {exc}") from exc
     if not isinstance(data, dict) or not isinstance(data.get("items"), list):
         raise ReviewError(f"Bias checklist {path} must contain an 'items' list")
+    declared = data.get("schema_version")
+    if declared is not None and str(declared) != BIAS_SCHEMA_VERSION:
+        raise ReviewError(
+            f"Bias checklist {path} schema_version {declared!r} "
+            f"does not match expected {BIAS_SCHEMA_VERSION!r}"
+        )
     items: list[dict] = []
     for raw in data["items"]:
         if not isinstance(raw, dict) or not raw.get("id") or not raw.get("coverage_hint"):
@@ -600,6 +608,11 @@ def apply_bias_gate(review: DraftReview, bias_results: list[dict]) -> bool:
     if review.verdict == "PASS":
         review.verdict = "REVISE"
         review.export_eligible = False
+        names = ", ".join(r["item_id"] for r in unaddressed)
+        review.revision_instructions.append(
+            f"Declare how {names} {('is' if len(unaddressed) == 1 else 'are')} "
+            "addressed in the draft's bias_checklist block"
+        )
         return True
     return False
 

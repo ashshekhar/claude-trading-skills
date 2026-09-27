@@ -798,6 +798,38 @@ def test_cli_bias_checklist_malformed_yaml(
     assert rc == 1
 
 
+def test_cli_bias_checklist_schema_version_mismatch(
+    tmp_path: Path, well_formed_breakout_draft: dict
+) -> None:
+    """A custom checklist with a mismatched schema_version is rejected."""
+    draft_file = tmp_path / "draft.yaml"
+    draft_file.write_text(
+        yaml.safe_dump(well_formed_breakout_draft, sort_keys=False), encoding="utf-8"
+    )
+    checklist_file = tmp_path / "checklist.yaml"
+    checklist_file.write_text(
+        yaml.safe_dump(
+            {"schema_version": "2.0", "items": [{"id": "x", "coverage_hint": "x"}]},
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+
+    rc = rsd.main(
+        [
+            "--draft",
+            str(draft_file),
+            "--output-dir",
+            str(output_dir),
+            "--bias-checklist",
+            str(checklist_file),
+        ]
+    )
+    assert rc == 1
+
+
 def test_cli_bias_checklist_drafts_dir_joins_by_index(
     tmp_path: Path, well_formed_breakout_draft: dict
 ) -> None:
@@ -832,6 +864,7 @@ def test_cli_bias_checklist_drafts_dir_joins_by_index(
     reject_review = next(r for r in reviews if r["draft_id"] == "draft_rejected_bad_idea")
     assert pass_review["verdict"] == "REVISE"
     assert "bias_review" in pass_review and pass_review["bias_review"]
+    assert any("Declare how" in i for i in pass_review["revision_instructions"])
     assert reject_review["verdict"] == "REJECT"
     assert "bias_review" in reject_review
 

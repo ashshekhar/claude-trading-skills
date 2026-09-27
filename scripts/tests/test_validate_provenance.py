@@ -67,11 +67,11 @@ def test_bool_fields_must_be_boolean() -> None:
 
 
 def test_retrieved_at_iso_timestamp_required() -> None:
-    for bad in ("2026/07/31", "not-a-date", 12345, None):
+    for bad in ("2026/07/31", "not-a-date", "2026-08-01T14:30:00", 12345, None):
         block = dict(VALID)
         block["retrieved_at"] = bad
         errors = vp.validate_provenance(block)
-        assert "retrieved_at must be an ISO-8601 timestamp" in errors
+        assert "retrieved_at must be an ISO-8601 UTC timestamp with timezone" in errors
 
 
 def test_as_of_iso_date_required() -> None:
@@ -139,6 +139,13 @@ def test_main_invalid_file(tmp_path: Path, capsys: pytest.CaptureFixture) -> Non
 def test_main_missing_file(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     missing = tmp_path / "nope.json"
     assert vp.main(["--file", str(missing)]) == 2
+    assert "error:" in capsys.readouterr().err
+
+
+def test_main_malformed_yaml_file(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+    p = tmp_path / "block.yaml"
+    p.write_text("a: [unclosed\n", encoding="utf-8")
+    assert vp.main(["--file", str(p)]) == 2
     assert "error:" in capsys.readouterr().err
 
 

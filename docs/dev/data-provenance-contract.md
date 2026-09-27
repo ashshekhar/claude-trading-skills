@@ -2,7 +2,7 @@
 
 > Schema version: **1.0**
 > Source: GitHub issue #297 (2026-08 external review, score 86/100).
-> Validator: [`scripts/validate_provenance.py`](../../scripts/validate_provenance.py)
+> Validator: [scripts/validate_provenance.py](https://github.com/tradermonty/claude-trading-skills/blob/main/scripts/validate_provenance.py)
 
 ## Purpose
 
@@ -63,7 +63,7 @@ data_provenance:
 | `schema_version` | string | Contract version this block follows. Must match the current version. |
 | `provider` | non-empty string | Data provider (e.g. `fmp`, `finviz`, `trader-monty`). |
 | `endpoint` | non-empty string | Endpoint or dataset that produced the rows. |
-| `retrieved_at` | ISO-8601 timestamp | When the fetch occurred. |
+| `retrieved_at` | ISO-8601 UTC timestamp (timezone-aware) | When the fetch occurred. |
 | `as_of` | ISO-8601 date (or timestamp) | The business date the data describes. |
 | `timezone` | valid IANA string | Reporting timezone. |
 | `adjusted` | boolean | Adjusted for splits and dividends. |
@@ -84,7 +84,8 @@ data_provenance:
 
 ## Validation
 
-Use the shared validator in skill tests and workflow E2E replay harnesses:
+Use the shared validator in skill tests today. It is also intended for use in
+workflow E2E replay harnesses once criterion 4 is wired (see Scope and rollout):
 
 ```bash
 # On a JSON report

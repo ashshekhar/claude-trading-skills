@@ -4,8 +4,8 @@ contract (issue #297).
 
 The contract (see ``docs/dev/data-provenance-contract.md``) mandates that every
 data-fetching, screening, and backtesting skill emits an honest provenance block
-in its JSON/YAML output. This validator is the shared, versioned gate used by
-skill tests and the workflow E2E replay harness.
+in its JSON/YAML output. This validator is the shared, versioned gate intended
+for use in skill tests and, once hooked up, workflow E2E replay harnesses.
 
 Usage:
     python3 validate_provenance.py --file report.json
@@ -57,10 +57,10 @@ def _is_iso_datetime(value: Any) -> bool:
     if not isinstance(value, str):
         return False
     try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return True
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return False
+    return parsed.tzinfo is not None
 
 
 def _is_iso_date(value: Any) -> bool:
@@ -107,7 +107,7 @@ def validate_provenance(block: Any, schema_version: str = SCHEMA_VERSION) -> lis
             errors.append(f"{field} must be a boolean (state honestly, e.g. False)")
 
     if "retrieved_at" in block and not _is_iso_datetime(block["retrieved_at"]):
-        errors.append("retrieved_at must be an ISO-8601 timestamp")
+        errors.append("retrieved_at must be an ISO-8601 UTC timestamp with timezone")
 
     if "as_of" in block and not (_is_iso_date(block["as_of"]) or _is_iso_datetime(block["as_of"])):
         errors.append("as_of must be an ISO-8601 date (YYYY-MM-DD)")
@@ -151,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
                 block = yaml.safe_load(text)
         else:
             block = load_block(Path(args.file))
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, json.JSONDecodeError, yaml.YAMLError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
