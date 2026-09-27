@@ -27,7 +27,7 @@ import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 import yaml
@@ -3236,6 +3236,17 @@ def _monthly_postmortem(
     return artifacts
 
 
+def _canonical_source_record(record: Any) -> Any:
+    """Keep relative source references; remove machine roots from absolute ones."""
+    if isinstance(record, str):
+        if PurePosixPath(record).is_absolute():
+            return "./" + PurePosixPath(record).name
+        windows_path = PureWindowsPath(record)
+        if windows_path.is_absolute():
+            return "./" + windows_path.name
+    return record
+
+
 def _monthly_coach(
     repo_root: Path,
     spec: Mapping[str, Any],
@@ -3268,13 +3279,9 @@ def _monthly_coach(
     coach = _canonicalize(
         _load_json(reports / "monthly-coach.json", "coach report"), spec["fixed_timestamp"], {}
     )
-    pub_dir = agg_path.parent
     source_records = coach.get("source_records")
     if isinstance(source_records, list):
-        coach["source_records"] = [
-            "./" + Path(rec).name if isinstance(rec, str) and Path(rec).parent == pub_dir else rec
-            for rec in source_records
-        ]
+        coach["source_records"] = [_canonical_source_record(rec) for rec in source_records]
 
     gate = coach.get("human_decision_gate") or {}
     allowed_actions = gate.get("allowed_actions") or []
@@ -4529,7 +4536,12 @@ def _kanchi_review_queue(
     _write_json(Path(artifacts["review_queue"]["files"]["canonical"]), canonical)
     markdown = markdown_out.read_text(encoding="utf-8")
     if isinstance(generated_at, str) and generated_at:
-        markdown = markdown.replace(generated_at, spec["fixed_timestamp"])
+        markdown = re.sub(
+            rf"(?m)^- Generated at: `{re.escape(generated_at)}`$",
+            lambda _: f"- Generated at: `{spec['fixed_timestamp']}`",
+            markdown,
+            count=1,
+        )
     review_markdown = Path(artifacts["review_queue"]["files"]["companion"])
     review_markdown.write_text(markdown, encoding="utf-8", newline="\n")
     _normalize_text_file(review_markdown)
