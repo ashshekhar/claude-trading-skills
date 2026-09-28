@@ -52,6 +52,24 @@ See [`workflows/README.md`](workflows/README.md) for how to read a manifest and 
 
 New here? Follow [Your First Week](docs/en/your-first-week.md) ([日本語](docs/ja/your-first-week.md)) from installation through a no-paid-data-API market check, first journal entry, and first weekly review.
 
+### See Example Outputs
+
+These visual excerpts use fictional data to show the kinds of results you can review before setting up a skill. They are illustrations, not live market readings or trading instructions.
+
+Select a preview to open the full-size SVG; on a phone, zoom after opening.
+
+[![Illustrative Navigator recommendation for a 15-minute daily market check, listing three required skills and a no-paid-API path](docs/assets/previews/navigator-recommendation.svg)](docs/assets/previews/navigator-recommendation.svg)
+
+**Choose a workflow:** [Trading Skills Navigator](docs/en/skills/trading-skills-navigator.md) recommends a starting path from your goal.
+
+[![Illustrative Market Posture Summary with a 36% exposure ceiling, REDUCE_ONLY posture, and LOW confidence because critical inputs are missing](docs/assets/previews/market-posture.svg)](docs/assets/previews/market-posture.svg)
+
+**Review market risk:** The [market-regime-daily workflow](workflows/market-regime-daily.yaml) ends with an Exposure Coach posture for human review, not an order.
+
+[![Illustrative Weekly Performance Digest for four fictional closed trades with a 50% win rate and 75 dollars realized profit](docs/assets/previews/weekly-digest.svg)](docs/assets/previews/weekly-digest.svg)
+
+**Learn from closed trades:** [Weekly Performance Digest](docs/en/skills/weekly-performance-digest.md) summarizes realized outcomes and process lessons.
+
 ### What This Actually Costs
 
 Claude Web Skills are currently available on Free, Pro, Max, Team, and
