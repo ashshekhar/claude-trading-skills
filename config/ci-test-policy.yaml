@@ -185,5 +185,5 @@ matrix:
     reason: Install the statistical runtime only for this dedicated CI row.
   repo-scripts:
     requirements:
-    - pyarrow==20.0.0
+    - pyarrow==23.0.1
     reason: Replay the strategy research parquet fixture in the repository scripts row.
