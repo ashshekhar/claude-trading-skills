@@ -52,6 +52,24 @@ manifest の読み方や手動実行手順は [`workflows/README.md`](workflows/
 
 初めて使う場合は、[最初の1週間](docs/ja/your-first-week.md)（[English](docs/en/your-first-week.md)）で、インストール、有料データAPI不要の相場確認、最初のジャーナル登録、最初の週次レビューまで順に進めてください。
 
+### 出力イメージ
+
+設定前に確認できる、架空データによる出力例です。現在の相場情報や売買指示ではありません。
+
+画像を選ぶと原寸のSVGを開けます。スマートフォンでは開いた後に拡大できます。
+
+[![架空の毎朝15分の確認目標に対し、必要な3スキルと有料API不要の経路を示すNavigatorの出力例](docs/assets/previews/navigator-recommendation.svg)](docs/assets/previews/navigator-recommendation.svg)
+
+**ワークフローを選ぶ:** [Trading Skills Navigator](docs/ja/skills/trading-skills-navigator.md)が目的に合う開始経路を提案します。
+
+[![架空のスコアから計算したエクスポージャー上限36%、REDUCE_ONLY、重要入力不足によるLOWの信頼度を示す出力例](docs/assets/previews/market-posture.svg)](docs/assets/previews/market-posture.svg)
+
+**相場リスクを確認する:** [市場レジーム日次ワークフロー](workflows/market-regime-daily.yaml)は、人間が確認するための方針を示します。注文は行いません。
+
+[![架空の決済済み4取引を使い、勝率50%と実現損益プラス75ドルを示す週次振り返りの出力例](docs/assets/previews/weekly-digest.svg)](docs/assets/previews/weekly-digest.svg)
+
+**決済済み取引を振り返る:** [Weekly Performance Digest](docs/ja/skills/weekly-performance-digest.md)は実現損益と改善点を整理します。
+
 ### 実際に必要な費用
 
 Claude WebのSkillsは現在Free、Pro、Max、Team、Enterpriseで利用できます。
