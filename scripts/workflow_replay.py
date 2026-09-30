@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Deterministic workflow contract replay harness (Issue #294, coverage 11/11).
+"""Deterministic workflow contract replay harness (Issue #294, coverage 12/12).
 
 The harness executes real offline CLIs for the Stockbee fluency, 20% study,
 trade-memory, market-regime, monthly-performance-review, core-portfolio,
 kanchi-dividend-weekly, shapiro-contrarian, stockbee-ep-daily, swing-opportunity-daily,
-and multi-asset-opportunity-daily workflows. Human decisions
+multi-asset-opportunity-daily, and strategy-research-pipeline workflows. Human decisions
 and fixture-backed native API evidence are reported separately from full skill
 execution. Golden outputs are comparison targets only and are never used as
 replay inputs.
@@ -60,7 +60,7 @@ KANCHI_FORBIDDEN_REVIEW_TOKENS = frozenset(
 )
 VARIANTS = ("required-only", "full-path")
 
-# Coverage 11/11 leaves no workflow deferred. This frozen baseline prevents a
+# Coverage 12/12 leaves no workflow deferred. This frozen baseline prevents a
 # newly introduced workflow from being waved through as another deferral.
 FROZEN_DEFERRED_WORKFLOWS = frozenset()
 
@@ -253,7 +253,7 @@ def coverage_errors(workflow_ids: set[str], coverage: Mapping[str, Any]) -> list
 
     if set(deferred) != FROZEN_DEFERRED_WORKFLOWS:
         errors.append(
-            "deferred workflows must match the frozen coverage 11/11 deferred set; "
+            "deferred workflows must match the frozen coverage 12/12 deferred set; "
             f"expected {sorted(FROZEN_DEFERRED_WORKFLOWS)}, got {sorted(deferred)}"
         )
     for workflow_id, entry in deferred.items():
@@ -487,6 +487,9 @@ def validate_spec(repo_root: Path, spec_path: Path) -> dict[str, Any]:
         "trade_memory_postmortem": {"realized_returns", "root_cause_decision"},
         "trade_memory_coach": {"coach_decision"},
         "trade_memory_backtest": {"backtest_metrics"},
+        "strategy_research_detect_initial": {"ohlcv"},
+        "strategy_research_detect_final": {"ohlcv"},
+        "strategy_research_hold": {"backtest_metrics"},
         "trade_memory_lessons": {"lessons_required", "lessons_full"},
         "market_regime_breadth": {"market_breadth_components"},
         "market_regime_uptrend": {"market_uptrend_components"},
@@ -6031,7 +6034,218 @@ def _multi_register(
     return artifacts
 
 
+def _strategy_research_tickets(report_dir: Path) -> list[dict[str, Any]]:
+    paths = sorted((report_dir / "tickets").glob("*/*.yaml"))
+    tickets = [load_yaml(path) for path in paths]
+    if len({ticket.get("id") for ticket in tickets}) != len(tickets):
+        raise ReplayError("strategy research generated duplicate ticket IDs")
+    return tickets
+
+
+def _strategy_research_detect(
+    repo_root: Path,
+    spec: Mapping[str, Any],
+    step: Mapping[str, Any],
+    inputs: Mapping[str, Path],
+    consumed: Mapping[str, dict[str, Any]],
+    work: Path,
+    stage: Path,
+    *,
+    final: bool,
+) -> dict[str, dict[str, Any]]:
+    expected = {"edge_hints"} if final else set()
+    if set(consumed) != expected:
+        raise ReplayError(f"strategy research detection requires {sorted(expected)}")
+    as_of = spec["fixed_timestamp"][:10]
+    report_dir = work / "reports"
+    command = [
+        sys.executable,
+        str(repo_root / "skills/edge-candidate-agent/scripts/auto_detect_candidates.py"),
+        "--ohlcv",
+        str(inputs["ohlcv"]),
+        "--as-of",
+        as_of,
+        "--output-dir",
+        str(report_dir),
+    ]
+    if final:
+        command.extend(["--hints", consumed["edge_hints"]["files"]["canonical"]])
+    _run_cli(command, repo_root)
+    tickets = _strategy_research_tickets(report_dir)
+    artifacts = _artifact_paths(stage, step["output_files"])
+    if final:
+        if not tickets:
+            raise ReplayError("strategy research replay needs a final ticket for evaluation")
+        payload = {
+            "as_of": as_of,
+            "ohlcv_sha256": _file_sha256(inputs["ohlcv"]),
+            "hints_sha256": _file_sha256(Path(consumed["edge_hints"]["files"]["canonical"])),
+            "tickets": tickets,
+        }
+        _write_json(Path(artifacts["final_research_tickets"]["files"]["canonical"]), payload)
+    else:
+        summary = _load_json(report_dir / "market_summary.json", "initial market summary")
+        anomalies = _load_json(report_dir / "anomalies.json", "initial anomalies")
+        _write_json(Path(artifacts["initial_market_summary"]["files"]["canonical"]), summary)
+        _write_json(Path(artifacts["initial_anomalies"]["files"]["canonical"]), anomalies)
+        _write_json(Path(artifacts["initial_tickets"]["files"]["canonical"]), tickets)
+    return artifacts
+
+
+def _strategy_research_detect_initial(
+    repo_root: Path,
+    spec: Mapping[str, Any],
+    step: Mapping[str, Any],
+    inputs: Mapping[str, Path],
+    consumed: Mapping[str, dict[str, Any]],
+    work: Path,
+    stage: Path,
+) -> dict[str, dict[str, Any]]:
+    return _strategy_research_detect(
+        repo_root, spec, step, inputs, consumed, work, stage, final=False
+    )
+
+
+def _strategy_research_hints(
+    repo_root: Path,
+    spec: Mapping[str, Any],
+    step: Mapping[str, Any],
+    inputs: Mapping[str, Path],
+    consumed: Mapping[str, dict[str, Any]],
+    work: Path,
+    stage: Path,
+) -> dict[str, dict[str, Any]]:
+    del inputs
+    if set(consumed) != {"initial_market_summary", "initial_anomalies"}:
+        raise ReplayError("strategy research hints require initial summary and anomalies")
+    output = work / "hints.yaml"
+    _run_cli(
+        [
+            sys.executable,
+            str(repo_root / "skills/edge-hint-extractor/scripts/build_hints.py"),
+            "--market-summary",
+            consumed["initial_market_summary"]["files"]["canonical"],
+            "--anomalies",
+            consumed["initial_anomalies"]["files"]["canonical"],
+            "--as-of",
+            spec["fixed_timestamp"][:10],
+            "--output",
+            str(output),
+        ],
+        repo_root,
+    )
+    hints = load_yaml(output)
+    if hints.get("as_of") != spec["fixed_timestamp"][:10]:
+        raise ReplayError("strategy research hints as_of differs from detector as_of")
+    hints.pop("generated_at_utc", None)
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_yaml(Path(artifacts["edge_hints"]["files"]["canonical"]), hints)
+    return artifacts
+
+
+def _strategy_research_detect_final(
+    repo_root: Path,
+    spec: Mapping[str, Any],
+    step: Mapping[str, Any],
+    inputs: Mapping[str, Path],
+    consumed: Mapping[str, dict[str, Any]],
+    work: Path,
+    stage: Path,
+) -> dict[str, dict[str, Any]]:
+    return _strategy_research_detect(
+        repo_root, spec, step, inputs, consumed, work, stage, final=True
+    )
+
+
+def _strategy_research_hold(
+    repo_root: Path,
+    spec: Mapping[str, Any],
+    step: Mapping[str, Any],
+    inputs: Mapping[str, Path],
+    consumed: Mapping[str, dict[str, Any]],
+    work: Path,
+    stage: Path,
+) -> dict[str, dict[str, Any]]:
+    if set(consumed) != {"final_research_tickets"}:
+        raise ReplayError("strategy research evaluation requires final tickets")
+    tickets_path = Path(consumed["final_research_tickets"]["files"]["canonical"])
+    final = _load_json(tickets_path, "final research tickets")
+    metrics = _require_mapping_keys(
+        _load_json(inputs["backtest_metrics"], "strategy research backtest metrics"),
+        label="strategy research backtest metrics",
+        required={
+            "ticket_id",
+            "as_of",
+            "universe",
+            "period",
+            "cost_assumptions",
+            "source",
+            "total_trades",
+            "win_rate",
+            "avg_win_pct",
+            "avg_loss_pct",
+            "max_drawdown_pct",
+            "years_tested",
+            "num_parameters",
+            "slippage_tested",
+        },
+    )
+    tickets = {ticket["id"]: ticket for ticket in final["tickets"]}
+    ticket_id = _require_non_empty_string(metrics["ticket_id"], "backtest ticket_id")
+    for field in ("universe", "period", "source"):
+        _require_non_empty_string(metrics[field], f"backtest {field}")
+    if not isinstance(metrics["cost_assumptions"], dict):
+        raise ReplayError("backtest cost_assumptions must be a mapping")
+    if metrics["slippage_tested"] is not True and metrics["slippage_tested"] is not False:
+        raise ReplayError("backtest slippage_tested must be boolean")
+    reasons = []
+    ticket = tickets.get(ticket_id)
+    if ticket is None:
+        reasons.append("ticket ID is absent from final research tickets")
+    if metrics["as_of"] != final["as_of"]:
+        reasons.append("metrics as-of date differs from final detection")
+    if ticket is not None:
+        if ticket.get("observation", {}).get("symbol") not in metrics["universe"]:
+            reasons.append("metrics universe does not identify the selected ticket symbol")
+        test_spec = ticket.get("test_spec") or {}
+        if metrics["period"] != test_spec.get("period"):
+            reasons.append("metrics period differs from selected ticket test period")
+        if metrics["cost_assumptions"] != test_spec.get("cost_model"):
+            reasons.append("metrics costs differ from selected ticket cost model")
+    if not metrics["slippage_tested"]:
+        reasons.append("slippage was not separately tested")
+    reasons.append("independent look-ahead, survivorship, and out-of-sample reviews are absent")
+    reasons.append("fictional aggregate metrics are not separate backtest provenance")
+    result = {
+        "status": "HOLD",
+        "evaluation_invoked": False,
+        "reasons": reasons,
+        "provenance": {
+            "execution": "manual_contract_only",
+            "ticket_id": ticket_id,
+            "as_of": final["as_of"],
+            "universe": metrics["universe"],
+            "period": metrics["period"],
+            "cost_assumptions": metrics["cost_assumptions"],
+            "source": metrics["source"],
+            "final_tickets_sha256": _file_sha256(tickets_path),
+            "limitation": "No backtest or scoring CLI was executed; human review is required.",
+        },
+    }
+    artifacts = _artifact_paths(stage, step["output_files"])
+    _write_json(Path(artifacts["backtest_quality_assessment"]["files"]["canonical"]), result)
+    return artifacts
+
+
 EXECUTORS: dict[str, ExecutorRegistration] = {
+    "strategy_research_detect_initial": ExecutorRegistration(
+        "native_cli", _strategy_research_detect_initial
+    ),
+    "strategy_research_hints": ExecutorRegistration("native_cli", _strategy_research_hints),
+    "strategy_research_detect_final": ExecutorRegistration(
+        "native_cli", _strategy_research_detect_final
+    ),
+    "strategy_research_hold": ExecutorRegistration("manual_contract", _strategy_research_hold),
     "ep_circuit": ExecutorRegistration("native_cli", _ep_circuit),
     "ep_screen": ExecutorRegistration("manual_contract", _ep_screen),
     "ep_analyze": ExecutorRegistration("native_cli", _ep_analyze),
