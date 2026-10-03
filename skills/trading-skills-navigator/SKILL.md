@@ -11,6 +11,9 @@ description: >-
   other skills, and it is honest when no workflow has shipped yet.
 ---
 
+> **ashshekhar slim fork (3 Oct 2026):** only 19 skills ship here: us-stock-analysis, trading-skills-navigator, market-breadth-analyzer, ftd-detector, uptrend-analyzer, market-top-detector, exposure-coach, position-sizer, pre-trade-discipline-gate, drawdown-circuit-breaker, earnings-calendar, economic-calendar-fetcher, market-news-analyst, sector-analyst, technical-analyst, scenario-analyzer, macro-regime-detector, market-environment-analysis, portfolio-manager. Skills named below that are not in this list are not installed; say so instead of invoking them.
+
+
 # Trading Skills Navigator
 
 The interactive on-ramp for this repository. It turns a user's goal into a

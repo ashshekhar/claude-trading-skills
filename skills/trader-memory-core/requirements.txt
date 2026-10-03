@@ -1,4 +1,0 @@
-# Runtime dependencies for standalone .skill installs (issue #330).
-# Verified by scripts/check_skill_deps.py.
-jsonschema>=4.25.1
-PyYAML>=6.0
