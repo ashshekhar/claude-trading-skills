@@ -1,6 +1,6 @@
 ---
 name: ftd-detector
-description: Detects Follow-Through Day (FTD) signals for market bottom confirmation using William O'Neil's methodology. Dual-index tracking (S&P 500 + NASDAQ) with state machine for rally attempt, FTD qualification, and post-FTD health monitoring. Use when user asks about market bottom signals, follow-through days, rally attempts, re-entry timing after corrections, or whether it's safe to increase equity exposure. Complementary to market-top-detector (defensive) - this skill is offensive (bottom confirmation).
+description: Use when the user asks about market bottom signals, follow-through days, rally attempts, re-entry timing after corrections, or whether it is safe to increase equity exposure. Detects O'Neil Follow-Through Day (FTD) signals on S&P 500 and NASDAQ. Offensive counterpart to market-top-detector.
 ---
 
 # FTD Detector Skill

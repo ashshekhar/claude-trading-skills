@@ -1,14 +1,6 @@
 ---
 name: trading-skills-navigator
-description: >-
-  Recommend the right trading workflow, skillset, API profile, and setup path
-  from a natural-language goal. Use this as the on-ramp when a user expresses a
-  trading or investing goal and needs to know which skill/workflow to use, where
-  to start, or whether something works without paid API keys — e.g. "where do I
-  start", "which skill should I use", "I want to swing trade only when the market
-  is favorable", "what works without API keys", "どれを使えばいい", "API キー無しで
-  使えるものは". Routes and explains only; it never executes trades or auto-runs
-  other skills, and it is honest when no workflow has shipped yet.
+description: Use when the user states a trading or investing goal and needs to know which skill or workflow to use, where to start, or what works without paid API keys, e.g. "where do I start", "which skill should I use", "どれを使えばいい". Routes and explains only; never executes trades.
 ---
 
 > **ashshekhar slim fork (3 Oct 2026):** only 19 skills ship here: us-stock-analysis, trading-skills-navigator, market-breadth-analyzer, ftd-detector, uptrend-analyzer, market-top-detector, exposure-coach, position-sizer, pre-trade-discipline-gate, drawdown-circuit-breaker, earnings-calendar, economic-calendar-fetcher, market-news-analyst, sector-analyst, technical-analyst, scenario-analyzer, macro-regime-detector, market-environment-analysis, portfolio-manager. Skills named below that are not in this list are not installed; say so instead of invoking them.

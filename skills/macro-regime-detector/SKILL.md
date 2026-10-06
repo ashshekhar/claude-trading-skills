@@ -1,6 +1,6 @@
 ---
 name: macro-regime-detector
-description: Detect structural macro regime transitions (1-2 year horizon) using cross-asset ratio analysis. Analyze RSP/SPY concentration, yield curve, credit conditions, size factor, equity-bond relationship, and sector rotation to identify regime shifts between Concentration, Broadening, Contraction, Inflationary, and Transitional states. Run when user asks about macro regime, market regime change, structural rotation, or long-term market positioning.
+description: Use when the user asks about macro regime, market regime change, structural rotation, or long-term market positioning. Detects 1-2 year regime shifts (Concentration, Broadening, Contraction, Inflationary, Transitional) from RSP/SPY, yield curve, credit, size factor and sector rotation.
 ---
 
 # Macro Regime Detector

@@ -1,14 +1,6 @@
 ---
 name: scenario-analyzer
-description: |
-  Skill that analyzes 18-month scenarios from a news headline.
-  Runs the primary analysis with the scenario-analyst agent and obtains a
-  second opinion with the strategy-reviewer agent.
-  Generates a comprehensive English report covering 1st/2nd/3rd-order
-  impacts, recommended stocks, and a critical review.
-  Example: /scenario-analyzer "Fed raises rates by 50bp"
-  Triggers: news analysis, scenario analysis, 18-month outlook,
-  medium-to-long-term investment strategy
+description: Use when the user gives a news headline and wants scenario analysis, an 18-month outlook, or a medium-to-long-term investment strategy. Runs scenario-analyst, then a strategy-reviewer second opinion; reports 1st/2nd/3rd-order impacts and picks. /scenario-analyzer "Fed raises rates by 50bp"
 ---
 
 # Scenario Analyzer

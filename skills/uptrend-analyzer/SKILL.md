@@ -1,6 +1,6 @@
 ---
 name: uptrend-analyzer
-description: Analyzes market breadth using Monty's Uptrend Ratio Dashboard data to diagnose the current market environment. Generates a 0-100 composite score from 5 components (breadth, sector participation, rotation, momentum, historical context). Use when asking about market breadth, uptrend ratios, or whether the market environment supports equity exposure. No API key required.
+description: Use when asking about market breadth, uptrend ratios, or whether the market environment supports equity exposure. Scores 0-100 from 5 components (breadth, sector participation, rotation, momentum, history) using Monty's Uptrend Ratio Dashboard data. No API key required.
 ---
 
 # Uptrend Analyzer Skill

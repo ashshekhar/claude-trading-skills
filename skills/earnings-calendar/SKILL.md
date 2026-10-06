@@ -1,6 +1,6 @@
 ---
 name: earnings-calendar
-description: This skill retrieves upcoming earnings announcements for US stocks using the Financial Modeling Prep (FMP) API. Use this when the user requests earnings calendar data, wants to know which companies are reporting earnings in the upcoming week, or needs a weekly earnings review. The skill focuses on mid-cap and above companies (over $2B market cap) that have significant market impact, organizing the data by date and timing in a clean markdown table format. Supports multiple environments (CLI, Desktop, Web) with flexible API key management.
+description: Use when the user asks for an earnings calendar, which companies report earnings this week, or a weekly earnings review. Fetches upcoming US earnings via the Financial Modeling Prep (FMP) API for mid-cap and above (over $2B), organized by date and timing in a markdown table.
 ---
 
 # Earnings Calendar

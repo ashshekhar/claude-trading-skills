@@ -1,6 +1,6 @@
 ---
 name: technical-analyst
-description: This skill should be used when analyzing weekly price charts for stocks, stock indices, cryptocurrencies, or forex pairs. Use this skill when the user provides chart images and requests technical analysis, trend identification, support/resistance levels, scenario planning, or probability assessments based purely on chart data without consideration of news or fundamental factors.
+description: Use when the user provides weekly chart images of stocks, indices, crypto or forex pairs and asks for technical analysis, trend identification, support/resistance levels, scenario planning, or probability assessments based purely on chart data, not news or fundamentals.
 ---
 
 # Technical Analyst

@@ -1,6 +1,6 @@
 ---
 name: market-environment-analysis
-description: Comprehensive market environment analysis and reporting tool. Analyzes global markets including US, European, Asian markets, forex, commodities, and economic indicators. Provides risk-on/risk-off assessment, sector analysis, and technical indicator interpretation. Triggers on keywords like market analysis, market environment, global markets, trading environment, market conditions, investment climate, market sentiment, forex analysis, stock market analysis, 相場環境, 市場分析, マーケット状況, 投資環境.
+description: Use when the user asks for market analysis, market environment, global markets, market conditions, market sentiment, forex analysis or stock market analysis. Covers US, European and Asian markets, forex, commodities, risk-on/risk-off and sectors. 相場環境, 市場分析, マーケット状況, 投資環境.
 ---
 
 # Market Environment Analysis
